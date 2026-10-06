@@ -1,0 +1,14 @@
+<div class="container" style="max-width: 400px;">
+  <div class="card">
+    <h2>Log In</h2>
+    <p *ngIf="error" class="error-msg">{{ error }}</p>
+    <form (ngSubmit)="onSubmit()">
+      <input type="email" name="email" placeholder="Email" [(ngModel)]="email" required />
+      <input type="password" name="password" placeholder="Password" [(ngModel)]="password" required />
+      <button type="submit">Log In</button>
+    </form>
+    <p style="margin-top:14px; font-size:13px;">
+      No account? <a routerLink="/register">Register here</a>
+    </p>
+  </div>
+</div>

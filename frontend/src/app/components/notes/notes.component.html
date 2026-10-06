@@ -1,0 +1,52 @@
+<div class="top-nav">
+  <h1>NoteShare</h1>
+  <div class="form-row" style="margin:0;">
+    <button class="icon-btn" (click)="theme.toggle()" title="Toggle dark mode">{{ theme.current === 'dark' ? '☀️' : '🌙' }}</button>
+    <button routerLink="/notes/new">+ New Note</button>
+    <button class="secondary" (click)="logout()">Log Out</button>
+  </div>
+</div>
+
+<div class="container">
+  <p *ngIf="error" class="error-msg">{{ error }}</p>
+  <p *ngIf="liveUpdateNotice" class="badge" style="display:block; width:fit-content; margin-bottom:12px; padding:6px 12px;">{{ liveUpdateNotice }}</p>
+
+  <div class="filter-strip">
+    <input type="text" placeholder="Search notes…" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" style="max-width:260px;" />
+    <select [(ngModel)]="selectedTag" (ngModelChange)="onFilterChange()" style="max-width:180px;">
+      <option value="">All tags</option>
+      <option *ngFor="let t of availableTags" [value]="t">#{{ t }}</option>
+    </select>
+    <select [(ngModel)]="selectedFolder" (ngModelChange)="onFilterChange()" style="max-width:180px;">
+      <option value="">All folders</option>
+      <option *ngFor="let f of availableFolders" [value]="f">📁 {{ f }}</option>
+    </select>
+  </div>
+
+  <div *ngIf="notes.length === 0" class="card">
+    <p>No notes match. {{ searchTerm || selectedTag || selectedFolder ? 'Try clearing filters.' : 'Click "+ New Note" to create your first one.' }}</p>
+  </div>
+
+  <div class="note-grid">
+    <div class="card note-card" *ngFor="let note of notes">
+      <h3>
+        {{ note.title }}
+        <span class="badge" *ngIf="note.isPublic">Public</span>
+        <span class="badge" *ngIf="!isOwner(note)">Shared by {{ note.owner.name }}</span>
+      </h3>
+      <div class="note-preview" [innerHTML]="note.content"></div>
+      <div class="form-row" style="margin: 8px 0 0;" *ngIf="note.folder || note.tags.length">
+        <span class="chip" *ngIf="note.folder">📁 {{ note.folder }}</span>
+        <span class="chip" *ngFor="let t of note.tags">#{{ t }}</span>
+      </div>
+      <div class="meta">Updated {{ note.updatedAt | date:'medium' }}</div>
+      <div class="note-actions">
+        <button class="secondary" [routerLink]="['/notes', note._id]">Open</button>
+        <ng-container *ngIf="isOwner(note)">
+          <button class="secondary" (click)="shareNote(note)">Share</button>
+          <button class="danger" (click)="deleteNote(note._id)">Delete</button>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>

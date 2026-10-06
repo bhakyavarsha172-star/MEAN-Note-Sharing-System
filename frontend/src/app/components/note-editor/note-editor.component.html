@@ -1,0 +1,135 @@
+<div class="top-nav">
+  <h1>NoteShare</h1>
+  <button class="secondary" routerLink="/notes">Back to Notes</button>
+</div>
+
+<div class="container" style="max-width: 640px;">
+  <div class="card">
+    <h2>
+      {{ isNew ? 'New Note' : 'Edit Note' }}
+      <span class="badge" *ngIf="viewerCount > 0">{{ viewerCount }} other{{ viewerCount > 1 ? 's' : '' }} viewing now</span>
+    </h2>
+    <p *ngIf="error" class="error-msg">{{ error }}</p>
+    <p *ngIf="liveEditNotice" class="badge" style="display:block; width:fit-content; padding:6px 12px; margin-bottom:12px;">{{ liveEditNotice }}</p>
+
+    <div *ngIf="!isNew && !isOwner" class="error-msg" style="background:#fff7e0; color:#8a6d00;">
+      This note was shared with you by {{ note?.owner?.name }}. You can view it but only the owner can edit it.
+    </div>
+
+    <ng-container *ngIf="isNew || isOwner">
+      <input type="text" placeholder="Title" [(ngModel)]="title" name="title" (input)="onTyping()" />
+
+      <app-rich-text-editor [value]="content" (valueChange)="onContentChange($event)"></app-rich-text-editor>
+
+      <div class="two-col" style="margin-top:14px;">
+        <div>
+          <label class="field-label">Tags (comma separated)</label>
+          <input type="text" placeholder="work, recipe, idea" [(ngModel)]="tagsInput" name="tags" />
+        </div>
+        <div>
+          <label class="field-label">Folder</label>
+          <input type="text" placeholder="e.g. Personal" [(ngModel)]="folder" name="folder" />
+        </div>
+      </div>
+
+      <label class="form-row" style="margin-bottom:14px;">
+        <input type="checkbox" [(ngModel)]="isPublic" name="isPublic" style="width:auto; margin:0;" />
+        Make this note public (anyone with the link can view)
+      </label>
+
+      <!-- Recipient picker — only shown while creating a brand-new note -->
+      <div *ngIf="isNew" class="panel-box">
+        <label class="form-row" style="margin-bottom:10px;">
+          <input type="checkbox" [(ngModel)]="shareWithAll" name="shareWithAll" style="width:auto; margin:0;" />
+          Send to all registered users
+        </label>
+
+        <div *ngIf="!shareWithAll">
+          <p style="font-size:13px; margin:0 0 8px;" class="muted">Or pick specific people to share with:</p>
+          <div *ngIf="allUsers.length === 0" class="muted" style="font-size:13px;">No other registered users yet.</div>
+          <div *ngFor="let u of allUsers" style="margin-bottom:6px;">
+            <label class="form-row">
+              <input
+                type="checkbox"
+                style="width:auto; margin:0;"
+                [checked]="selectedUserIds.includes(u._id)"
+                (change)="toggleRecipient(u._id, $any($event.target).checked)" />
+              {{ u.name }} <span class="muted" style="font-size:12px;">({{ u.email }})</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- File picker — for a new note files are queued and sent with the create request -->
+      <div *ngIf="isNew" style="margin-bottom:16px; margin-top:16px;">
+        <input type="file" multiple (change)="onFilesSelected($event)" />
+        <p class="muted" style="font-size:12px; margin: 4px 0 8px;">Up to 5 files, 10 MB each.</p>
+        <div class="form-row" style="justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"
+             *ngFor="let f of pendingFiles">
+          <span style="font-size:13px;">{{ f.name }}</span>
+          <button class="danger" (click)="removePendingFile(f)">Remove</button>
+        </div>
+      </div>
+
+      <button (click)="save()" [disabled]="saving">{{ saving ? 'Saving...' : (isNew ? 'Create Note' : 'Save Note') }}</button>
+    </ng-container>
+
+    <ng-container *ngIf="!isNew && !isOwner">
+      <h3>{{ title }}</h3>
+      <div class="rte-content readonly" [innerHTML]="content"></div>
+      <div class="form-row" style="margin-top:12px;" *ngIf="note?.tags?.length || note?.folder">
+        <span class="chip" *ngIf="note?.folder">📁 {{ note?.folder }}</span>
+        <span class="chip" *ngFor="let t of note?.tags">#{{ t }}</span>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="card" *ngIf="!isNew">
+    <h3>Files</h3>
+
+    <div *ngIf="isOwner" style="margin-bottom: 14px;">
+      <input type="file" multiple (change)="onFilesSelected($event)" [disabled]="uploading" />
+      <p *ngIf="uploading" class="muted" style="font-size:13px;">Uploading…</p>
+      <p class="muted" style="font-size:12px;">Up to 5 files per upload, 10 MB each.</p>
+    </div>
+
+    <div *ngIf="!note?.attachments?.length" class="muted" style="font-size:14px;">No files attached yet.</div>
+
+    <div class="form-row" style="justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);"
+         *ngFor="let att of note?.attachments">
+      <div>
+        <div style="font-size:14px;">{{ att.originalName }}</div>
+        <div class="muted" style="font-size:12px;">{{ formatSize(att.size) }}</div>
+      </div>
+      <div class="form-row">
+        <button class="secondary" (click)="download(att)">Download</button>
+        <button class="danger" *ngIf="isOwner" (click)="removeAttachment(att)">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" *ngIf="!isNew">
+    <div class="form-row" style="justify-content: space-between;">
+      <h3 style="margin:0;">Version History</h3>
+      <button class="secondary" (click)="toggleVersions()">{{ showVersions ? 'Hide' : 'Show' }}</button>
+    </div>
+
+    <div *ngIf="showVersions" style="margin-top:12px;">
+      <div *ngIf="versions.length === 0" class="muted" style="font-size:13px;">No earlier versions yet — history is recorded each time this note is edited.</div>
+
+      <div *ngFor="let v of versions" style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+        <div class="form-row" style="justify-content: space-between;">
+          <div>
+            <strong style="font-size:13px;">{{ v.title }}</strong>
+            <div class="muted" style="font-size:12px;">{{ v.editedAt | date:'medium' }}</div>
+          </div>
+          <div class="form-row">
+            <button class="secondary" (click)="viewVersion(v)">{{ previewVersion?._id === v._id ? 'Hide' : 'Preview' }}</button>
+            <button *ngIf="isOwner" (click)="restoreVersion(v)" [disabled]="restoring">Restore</button>
+          </div>
+        </div>
+        <div *ngIf="previewVersion?._id === v._id" class="rte-content readonly" style="margin-top:10px;" [innerHTML]="v.content"></div>
+      </div>
+    </div>
+  </div>
+</div>
